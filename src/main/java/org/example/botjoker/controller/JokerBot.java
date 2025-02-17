@@ -34,6 +34,7 @@ public class JokerBot extends TelegramLongPollingBot {
 
     static private final int MAX_JOKE_ID_PLUS_ONE = 3774;
     static final String NEXT_JOKE = "NEXT_JOKE";
+    static final InlineKeyboardMarkup NEXT_JOKE_BUTTON = createButtonGetJoke();
 
     static final String HELP_TEXT = "This bot is created to send a random joke from the database each time you request it.\n\n" +
             "You can execute commands from the main menu on the left or by typing commands manually\n\n" +
@@ -53,7 +54,7 @@ public class JokerBot extends TelegramLongPollingBot {
 
     @Override
     public void onUpdateReceived(Update update) {
-        if(update.hasMessage() && update.getMessage().hasText()) {
+        if (update.hasMessage() && update.getMessage().hasText()) {
             String messageText = update.getMessage().getText();
             long chatId = update.getMessage().getChatId();
 
@@ -61,24 +62,28 @@ public class JokerBot extends TelegramLongPollingBot {
                 case "/start" -> showStart(chatId, update.getMessage().getChat().getUserName());
                 case "/help" -> sendMessage(chatId, HELP_TEXT);
 //                case "/joke" -> getRandomJoke().ifPresent(j -> sendMessage(chatId, j.getBody()));
-                case "/joke" -> addButtonAndSendMessage(getRandomJoke().get().getBody(), chatId);
+                case "/joke" -> addButtonAndSendMessage(getRandomJoke().get().getBody(), chatId, NEXT_JOKE_BUTTON);
                 default -> commandNotFound(chatId);
             }
         } else if (update.hasCallbackQuery()) {
             long chatId = update.getCallbackQuery().getMessage().getChatId();
             String callbackData = update.getCallbackQuery().getData();
 
-            if(callbackData.equals(NEXT_JOKE)) {
-                addButtonAndSendMessage(getRandomJoke().get().getBody(), chatId);
+            if (callbackData.equals(NEXT_JOKE)) {
+                addButtonAndSendMessage(getRandomJoke().get().getBody(), chatId, NEXT_JOKE_BUTTON);
             }
         }
     }
 
-    private void addButtonAndSendMessage(String joke, long chatId) {
-            SendMessage sendMessage = new SendMessage();
-            sendMessage.setText(joke);
-            sendMessage.setChatId(chatId);
+    private void addButtonAndSendMessage(String joke, long chatId, InlineKeyboardMarkup markupButtons) {
+        SendMessage sendMessage = new SendMessage();
+        sendMessage.setText(joke);
+        sendMessage.setChatId(chatId);
+        sendMessage.setReplyMarkup(markupButtons);
+        send(sendMessage);
+    }
 
+    private static InlineKeyboardMarkup createButtonGetJoke() {
         InlineKeyboardMarkup markupInline = new InlineKeyboardMarkup();
         List<List<InlineKeyboardButton>> rowsInline = new ArrayList<>();
         List<InlineKeyboardButton> rowInLine = new ArrayList<>();
@@ -88,9 +93,7 @@ public class JokerBot extends TelegramLongPollingBot {
         rowInLine.add(inlineKeyboardButton);
         rowsInline.add(rowInLine);
         markupInline.setKeyboard(rowsInline);
-        sendMessage.setReplyMarkup(markupInline);
-
-        send(sendMessage);
+        return markupInline;
     }
 
     private Optional<Joke> getRandomJoke() {
@@ -107,7 +110,7 @@ public class JokerBot extends TelegramLongPollingBot {
     }
 
     public void send(SendMessage message) {
-        try{
+        try {
             this.execute(message);
         } catch (TelegramApiException e) {
             log.error("Error occurred " + e.getMessage());
