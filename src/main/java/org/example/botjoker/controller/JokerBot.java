@@ -16,6 +16,8 @@ import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.commands.BotCommand;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.BotCommandScopeDefault;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMarkup;
+import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
 import java.io.File;
@@ -31,6 +33,7 @@ public class JokerBot extends TelegramLongPollingBot {
     private final Random random = new Random();
 
     static private final int MAX_JOKE_ID_PLUS_ONE = 3774;
+    static final String NEXT_JOKE = "NEXT_JOKE";
 
     static final String HELP_TEXT = "This bot is created to send a random joke from the database each time you request it.\n\n" +
             "You can execute commands from the main menu on the left or by typing commands manually\n\n" +
@@ -57,15 +60,42 @@ public class JokerBot extends TelegramLongPollingBot {
             switch (messageText) {
                 case "/start" -> showStart(chatId, update.getMessage().getChat().getUserName());
                 case "/help" -> sendMessage(chatId, HELP_TEXT);
-                case "/joke" -> {
-                    long randomId = random.nextInt(1, MAX_JOKE_ID_PLUS_ONE);
-                    Optional<Joke> randomJoke = jokeRepository.findById(randomId);
-
-                    randomJoke.ifPresent(j -> sendMessage(chatId, j.getBody()));
-                }
+//                case "/joke" -> getRandomJoke().ifPresent(j -> sendMessage(chatId, j.getBody()));
+                case "/joke" -> addButtonAndSendMessage(getRandomJoke().get().getBody(), chatId);
                 default -> commandNotFound(chatId);
             }
+        } else if (update.hasCallbackQuery()) {
+            long chatId = update.getCallbackQuery().getMessage().getChatId();
+            String callbackData = update.getCallbackQuery().getData();
+
+            if(callbackData.equals(NEXT_JOKE)) {
+                addButtonAndSendMessage(getRandomJoke().get().getBody(), chatId);
+            }
         }
+    }
+
+    private void addButtonAndSendMessage(String joke, long chatId) {
+            SendMessage sendMessage = new SendMessage();
+            sendMessage.setText(joke);
+            sendMessage.setChatId(chatId);
+
+        InlineKeyboardMarkup markupInline = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> rowsInline = new ArrayList<>();
+        List<InlineKeyboardButton> rowInLine = new ArrayList<>();
+        InlineKeyboardButton inlineKeyboardButton = new InlineKeyboardButton();
+        inlineKeyboardButton.setCallbackData(NEXT_JOKE);
+        inlineKeyboardButton.setText(EmojiParser.parseToUnicode("next joke " + ":rolling_on_the_floor_laughing:"));
+        rowInLine.add(inlineKeyboardButton);
+        rowsInline.add(rowInLine);
+        markupInline.setKeyboard(rowsInline);
+        sendMessage.setReplyMarkup(markupInline);
+
+        send(sendMessage);
+    }
+
+    private Optional<Joke> getRandomJoke() {
+        long randomId = random.nextInt(1, MAX_JOKE_ID_PLUS_ONE);
+        return jokeRepository.findById(randomId);
     }
 
     private void sendMessage(long chatId, String textToSend) {
